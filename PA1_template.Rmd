@@ -1,8 +1,14 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
+title: 'Reproducible Research: Peer Assessment 1'
 author: "by Patrick L"
 date: "Monday, August 11, 2014"
-output: html_document
+output:
+  html_document:
+    fig_caption: yes
+    fig_height: 10
+    fig_width: 10
+    keep_md: yes
+    toc: yes
 ---
 
 This page presents the result of some basic data analyses performed  on <a href="https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"> this dataset</a>. It contains data describing personal movements of an anonymous user (henceforth called Customer A) collected using activity monitoring devices (AMD).
