@@ -1,20 +1,195 @@
-# Reproducible Research: Peer Assessment 1
+---
+title: "Reproducible Research: Peer Assessment 1"
+author: "by Patrick L"
+date: "Monday, August 11, 2014"
+output: html_document
+---
+
+This page presents the result of some basic data analyses performed  on <a href="https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"> this dataset</a>. It contains data describing personal movements of an anonymous user (henceforth called Customer A) collected using activity monitoring devices (AMD).
+
+The number of steps taken by Customer A was collected at 5 minutes intervals throughout the day. Two months worth of data from October and November, 2012 are available in the dataset.
+
+## Obtaining the data
+To analyze the data, it needs to be obtained/downloaded from the link above. 
+```{r}
+# fileURL <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+# download.file(fileURL, destfile="activity.zip")
+```
+The dowloaded file is then unzipped to extract the csv dataset.
+```{r}
+# unzip("activity.zip")
+```
 
 
 ## Loading and preprocessing the data
+Data is supplied in a csv file that need to be loaded into the rawdata dataframe from where it can be manipulated
+```{r}
+rawdata<- read.csv("activity.csv")
 
+```
+There is a need to peek into the raw data for an idea of the structure in case any conversion is needed.
+```{r}
+str(rawdata)
+```
+This shows that the Date attribute has been imported as a factor. both steps and Interval have been properly imported as numeric values. Data manipulation ca be commenced.
 
 
 ## What is mean total number of steps taken per day?
+To get to the total number of steps taken each day by Customer A, there is a need to extract all the days during which data was recorded.
+```{r}
+dateList<- unique(rawdata$date)
+```
+This will allow us to parse the raw data and create another data frame containing Customer A's daily steps Statistics.
+```{r}
+stepsStatistics <- c()
 
+for(idate in dateList){
+  subList<- subset(rawdata, date ==idate)
+  StepsSum <- sum(subList$steps, na.rm=TRUE)
+  StepsMean <- mean(subList$steps, na.rm=TRUE)
+  StepsMedian <- median(subList$steps, na.rm=FALSE)
+  stepsStatistics<-rbind(stepsStatistics,c(idate,StepsSum,StepsMean,StepsMedian ))
+  }
+stepsStatistics<-as.data.frame(stepsStatistics)
+
+```
+Now let's rename the columns of the new data frame
+```{r}
+colnames(stepsStatistics) <- c("Date","Sum","Mean","Median")
+```
+As described in the above instruction, the new dataframe is structured as follows:</br>
+
+- column 1: Date
+- column 2: Sum of steps
+- column 3: Average number of steps
+- column 4: Median
+
+From here, the histogram describing the number of steps taken each day by Customer A can be obtained. But first, the library needs to be imported
+```{r}
+library(ggplot2)
+```
+and the plot designed </br>
+```{r dpi=96}
+
+q<- qplot(Date, Sum, data=stepsStatistics)
+q + geom_bar(stat = "identity")+ theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+In addition the daily statistics of customer A are as follows:
+
+```{r echo=FALSE}
+stepsStatistics
+```
 
 
 ## What is the average daily activity pattern?
+To get a sense of the daily activity average of Customer A, lets look at a time series showing the number of steps taken per day during those two months.<br/>
+```{r}
+g<- ggplot(rawdata, aes(x=interval, y=steps))
+g+geom_line()+facet_wrap(~date)+geom_hline(yintercept=max(rawdata$steps, na.rm=TRUE))
+```
+<br/>A horitontal line is added to show the maximum number of steps taken over the two months period. It shows that on 2012-11-27, Customer A's AMD counted 806 steps at the 6th hour 5mn mark.
+This is also visible by subsetting the raw data to the maximum number of steps ever taken by Customer A as recorded by the AMD.
+```{r}
+subset(rawdata, steps==max(rawdata$steps, na.rm=TRUE))
+```
 
+Another perspective is to look at all the 5mn intervals across all the days in the dataset and determine with one appear on average to be the one with the most activity. For that, we need to extract the interval with the maximum number of steps for a day. This will be repeated for each day to construct another data frame of maximum steps.
+```{r warning=FALSE}
+maxIntervals <- c() # The new data frame
+for(idate in dateList){ # for each day
+  subList<- subset(rawdata, date ==idate) # Subset to that day
+  maxSubset <- max(subList$steps, na.rm=TRUE) # retreive the maximum number of steps
+  maxIntervalRow <- subset(subList, steps==maxSubset) # extract that row
+  maxIntervals<-rbind(maxIntervals,maxIntervalRow) # add it to the new data frame.
+}
 
+```
+With the new dataframe ready, we find the average interval to be `r mean(maxIntervals$interval)`, which corresponds to approximately the 12th hour and 35th minute.<br/>
 
 ## Imputing missing values
+The number of rows with missing values are obtained using the <b>complete.cases()</b> function.
+```{r}
+library(plyr)
+missingValues <- count(complete.cases(rawdata))
+```
+The count reveals that `r missingValues$freq[1]` observations have missing value which is `r (missingValues$freq[1]/missingValues$freq[2])*100` % of the data.
+<br/>
+Let's replace missing values are with the <b>average number of steps for the day</b>.
 
+```{r}
+for(index in 1:nrow(rawdata)){ # scan through the data frame
+  if(!complete.cases(rawdata[index,])){ # if case is not complete - mising values detected
+    idate <- as.character(rawdata$date[index]) # get the date
+    s<- subset(stepsStatistics, Date==idate) # look in the Statisctics table and return the stats for given date
+    s$Mean <- as.numeric(as.character(s$Mean))
+    if(is.nan(s$Mean)){ # if mean is Not a Number or is missing, then replace with zero
+      replacement <- 0
+    }
+    else {# else use the mean for that day as a replacement.
+      replacement <- s$Mean
+    }
+    rawdata$steps[index] <- replacement
+  }
+}
+```
+<br/>and save the vew dataset in another file <i>activityNoNA.csv</i>
+```{r}
+write.csv(rawdata,"activityNoNA.csv")
+```
 
+With the new dataset, lets re-explore our data 
+
+```{r}
+stepsStatistics <- c()
+for(idate in dateList){
+  subList<- subset(rawdata, date ==idate)
+  StepsSum <- sum(subList$steps, na.rm=TRUE)
+  StepsMean <- mean(subList$steps, na.rm=TRUE)
+  StepsMedian <- median(subList$steps, na.rm=FALSE)
+  stepsStatistics<-rbind(stepsStatistics,c(idate,StepsSum,StepsMean,StepsMedian ))
+  }
+stepsStatistics<-as.data.frame(stepsStatistics)
+colnames(stepsStatistics) <- c("Date","Sum","Mean","Median")
+
+```
+
+and the re-plot: </br>
+
+```{r dpi=96}
+
+q<- qplot(Date, Sum, data=stepsStatistics)
+q + geom_bar(stat = "identity")+ theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+The new daily statitics are as follows:
+```{r echo=FALSE}
+stepsStatistics
+```
+There is no visible difference when the missing data is substituted with the means of values for each day.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+Let's add an attribute to the raw data that cesribes the day of the week as either "weekday" or "Weekend"...
+```{r}
+for(index in 1:nrow(rawdata)){ # scan through the data frame
+  wday <- weekdays(as.Date(rawdata$date[index]))
+  if(wday %in% c("Saturday","Sunday")){ 
+    rawdata$day[index] <- "WeekEnd"
+  }
+  else {# 
+    rawdata$day[index] <- "WeekDay"
+  }
+}
+rawdata$day<- factor(rawdata$day)
+```
+<br/> ... and plot the data with faceting and line using the newly added attribute.
+```{r}
+h<- ggplot(rawdata, aes(x=interval, y=steps))
+h+geom_line()+facet_wrap(~day, nrow = 2)
+```
+The plot shows that Customer A was more active Weekdays than weekends.
+This is verified with cross tabultation on the raw data
+```{r}
+xtabs(steps~day, data = rawdata)
+```
+that shows more steps counted weekdays than weekends.
